@@ -100,6 +100,13 @@
                     <div class="chat-input-bar">
                         <button class="mic-btn" id="mic-btn" title="Voice input">🎙️</button>
                         <input type="text" id="text-input" placeholder="Ask me anything…" autocomplete="off">
+                        <button id="live-toggle" title="Toggle live streaming mode" style="
+                            background: linear-gradient(135deg,#6366f1,#8b5cf6);
+                            color:#fff; border:none; border-radius:10px;
+                            padding:0 14px; font-size:12px; font-weight:700;
+                            cursor:pointer; letter-spacing:.5px; white-space:nowrap;
+                            transition:opacity .2s;
+                        ">⚡ Live</button>
                         <button class="send-btn" id="send-btn" title="Send">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -150,6 +157,18 @@
         const emotionChip = document.getElementById('emotion-chip');
 
         let sessionId = null;
+        let liveMode = false;
+
+        // ── LIVE MODE TOGGLE ───────────────────────────────────
+        const liveToggleBtn = document.getElementById('live-toggle');
+        liveToggleBtn.addEventListener('click', () => {
+            liveMode = !liveMode;
+            liveToggleBtn.style.background = liveMode
+                ? 'linear-gradient(135deg,#10b981,#059669)'
+                : 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+            liveToggleBtn.textContent = liveMode ? '✅ Live ON' : '⚡ Live';
+            Toast.info(liveMode ? '🟢 Live streaming mode ON' : '⚪ Instant mode ON');
+        });
 
         // ── TEXT CHAT ──────────────────────────────────────────
         async function sendMessage() {
@@ -158,30 +177,127 @@
             addMsg('user', message);
             textInput.value = '';
             sendBtn.disabled = true;
+            liveToggleBtn.disabled = true;
             showTyping(true);
 
+            if (liveMode) {
+                await sendStreamingMessage(message);
+            } else {
+                await sendInstantMessage(message);
+            }
+
+            sendBtn.disabled = false;
+            liveToggleBtn.disabled = false;
+            textInput.focus();
+        }
+
+        // ── INSTANT MODE ───────────────────────────────────────
+        async function sendInstantMessage(message) {
             try {
                 const res = await API.request('/api/chat/text', {
                     method: 'POST',
                     body: JSON.stringify({ message, session_id: sessionId, language: 'en' })
                 });
                 sessionId = res.session_id;
-
-                // Realistic typing delay based on response length
                 const delay = Math.min(600 + res.ai_response.length * 7, 2200);
                 await new Promise(r => setTimeout(r, delay));
-
+                showTyping(false);
                 addMsg('assistant', res.ai_response, res);
                 updateEmotion(res.emotion, res.is_urgent);
                 if (res.fraud_alert) Toast.error('⚠️ Suspicious content detected');
-
             } catch (err) {
+                showTyping(false);
                 addMsg('assistant', "Oops! I had a connection hiccup. Please try again. 😅");
                 Toast.error('Connection error');
-            } finally {
-                sendBtn.disabled = false;
-                showTyping(false);
-                textInput.focus();
+            }
+        }
+
+        // ── LIVE STREAMING MODE (SSE) ──────────────────────────
+        async function sendStreamingMessage(message) {
+            showTyping(false);
+
+            // Create an empty streaming bubble
+            const wrap = document.createElement('div');
+            wrap.className = 'msg assistant';
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            wrap.innerHTML = `
+              <div class="msg-avatar">🤖</div>
+              <div class="msg-body">
+                <div class="msg-bubble" id="stream-bubble"></div>
+                <div class="msg-meta"><span>${timeStr}</span><span id="stream-meta"></span></div>
+              </div>`;
+            chatMessages.appendChild(wrap);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const bubble = document.getElementById('stream-bubble');
+            const streamMeta = document.getElementById('stream-meta');
+            let fullText = '';
+            let metaData = null;
+
+            // Blinking cursor
+            bubble.innerHTML = '<span class="cursor">▋</span>';
+
+            try {
+                const token = localStorage.getItem('token') || 'demo-token';
+                const response = await fetch('http://localhost:8000/api/chat/stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ message, session_id: sessionId, language: 'en' })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // keep incomplete last line
+
+                    let eventType = null;
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            eventType = line.slice(7).trim();
+                        } else if (line.startsWith('data: ')) {
+                            const raw = line.slice(6).trim();
+                            if (!raw) continue;
+                            try {
+                                const parsed = JSON.parse(raw);
+                                if (eventType === 'meta') {
+                                    metaData = parsed;
+                                    sessionId = parsed.session_id;
+                                } else if (eventType === 'token') {
+                                    fullText += parsed;
+                                    // Render with markdown-lite + cursor
+                                    const html = fullText
+                                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                        .replace(/\n/g, '<br>');
+                                    bubble.innerHTML = html + '<span class="cursor">▋</span>';
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                                } else if (eventType === 'done') {
+                                    const html = fullText
+                                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                        .replace(/\n/g, '<br>');
+                                    bubble.innerHTML = html; // remove cursor
+                                    if (metaData) {
+                                        updateEmotion(metaData.emotion, metaData.is_urgent);
+                                        if (metaData.is_urgent) streamMeta.innerHTML += '<span class="urgent-tag">⚠ Urgent</span>';
+                                        if (metaData.fraud_alert) Toast.error('⚠️ Suspicious content detected');
+                                    }
+                                }
+                            } catch (e) { /* ignore parse errors */ }
+                        }
+                    }
+                }
+            } catch (err) {
+                bubble.innerHTML = "Oops! Streaming failed. Please try again. 😅";
+                Toast.error('Streaming error: ' + err.message);
             }
         }
 

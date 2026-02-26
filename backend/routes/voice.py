@@ -1,10 +1,12 @@
 """
-Real-time voice WebSocket endpoint + text chat REST endpoint.
+Real-time voice WebSocket endpoint + text chat REST endpoint + SSE streaming endpoint.
 """
 
 import json
 import uuid
+import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,6 +119,85 @@ async def text_chat(req: TextChatRequest):
         sentiment_score=sentiment["sentiment_score"],
         is_urgent=sentiment["is_urgent"],
         fraud_alert=fraud["flagged"],
+    )
+
+
+# ---- SSE Streaming Chat Endpoint ----
+class StreamChatRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    language: str = "en"
+
+
+@router.post("/api/chat/stream")
+async def stream_chat(req: StreamChatRequest):
+    """
+    Live streaming chat endpoint using Server-Sent Events (SSE).
+    Streams the AI response word-by-word in real time.
+    """
+    session_id = req.session_id or str(uuid.uuid4())
+
+    if session_id not in _chat_sessions:
+        _chat_sessions[session_id] = []
+        async with async_session() as db:
+            conv = Conversation(id=session_id, channel="web")
+            db.add(conv)
+            await db.commit()
+
+    chat_history = _chat_sessions[session_id]
+
+    sentiment = analyze_sentiment(req.message)
+    fraud = await check_fraud(req.message, session_id)
+    kb_context = await vector_search(req.message)
+
+    chat_history.append({"role": "user", "content": req.message})
+    ai_text = await generate_response(
+        chat_history, knowledge_context=kb_context, language=req.language
+    )
+    chat_history.append({"role": "assistant", "content": ai_text})
+
+    # Persist to DB
+    async with async_session() as db:
+        user_msg = Message(
+            conversation_id=session_id,
+            role="user",
+            content=req.message,
+            sentiment_score=sentiment["sentiment_score"],
+            emotion=sentiment["emotion"],
+            is_urgent=sentiment["is_urgent"],
+        )
+        ai_msg = Message(conversation_id=session_id, role="assistant", content=ai_text)
+        db.add_all([user_msg, ai_msg])
+        await db.commit()
+
+    async def event_generator():
+        # Send metadata first
+        meta = json.dumps({
+            "session_id": session_id,
+            "emotion": sentiment["emotion"],
+            "sentiment_score": sentiment["sentiment_score"],
+            "is_urgent": sentiment["is_urgent"],
+            "fraud_alert": fraud["flagged"],
+        })
+        yield f"event: meta\ndata: {meta}\n\n"
+
+        # Stream the response word by word
+        words = ai_text.split(" ")
+        for i, word in enumerate(words):
+            chunk = word if i == len(words) - 1 else word + " "
+            yield f"event: token\ndata: {json.dumps(chunk)}\n\n"
+            await asyncio.sleep(0.045)  # ~22 words/sec
+
+        # Signal end of stream
+        yield f"event: done\ndata: {json.dumps({'full': ai_text})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
