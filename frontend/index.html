@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI Voice Chatbot — Admin Login">
+  <title>AI Voice Bot — Login</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <div class="login-container">
+      <div class="glass-card login-card">
+        <div class="sidebar-logo">🤖</div>
+        <h1>AI Voice <span style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Chatbot</span></h1>
+        <p>Sign in to access the admin dashboard</p>
+
+        <div id="login-error" class="login-error"></div>
+
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label" for="username">Username</label>
+            <input class="form-input" type="text" id="username" placeholder="Enter your username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <input class="form-input" type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+          </div>
+          <button class="btn btn-primary" type="submit" id="login-btn">
+            Sign In
+          </button>
+        </form>
+
+        <p style="margin-top:24px;font-size:12px;color:var(--text-muted);">
+          Don't have an account? <a href="#" id="show-register" style="color:var(--accent-primary);text-decoration:none;">Register</a>
+        </p>
+
+        <!-- Register form (hidden by default) -->
+        <form id="register-form" style="display:none;margin-top:24px;">
+          <div class="form-group">
+            <label class="form-label" for="reg-username">Username</label>
+            <input class="form-input" type="text" id="reg-username" placeholder="Choose a username" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Email</label>
+            <input class="form-input" type="email" id="reg-email" placeholder="your@email.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-password">Password</label>
+            <input class="form-input" type="password" id="reg-password" placeholder="Min 6 characters" required minlength="6">
+          </div>
+          <button class="btn btn-primary" type="submit">Create Account</button>
+          <p style="margin-top:12px;font-size:12px;color:var(--text-muted);">
+            Already have an account? <a href="#" id="show-login" style="color:var(--accent-primary);text-decoration:none;">Sign In</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="js/app.js"></script>
+  <script>
+    // Toggle register / login forms
+    document.getElementById('show-register').addEventListener('click', e => {
+      e.preventDefault();
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('register-form').style.display = 'block';
+    });
+    document.getElementById('show-login').addEventListener('click', e => {
+      e.preventDefault();
+      document.getElementById('login-form').style.display = 'block';
+      document.getElementById('register-form').style.display = 'none';
+    });
+
+    // Login
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      btn.textContent = 'Signing in…';
+      btn.disabled = true;
+
+      try {
+        const res = await API.login(
+          document.getElementById('username').value,
+          document.getElementById('password').value
+        );
+        Toast.success('Welcome back!');
+        setTimeout(() => window.location.href = 'chat.html', 500);
+      } catch (err) {
+        const el = document.getElementById('login-error');
+        el.style.display = 'block';
+        el.textContent = err.message || 'Invalid credentials';
+      } finally {
+        btn.textContent = 'Sign In';
+        btn.disabled = false;
+      }
+    });
+
+    // Register
+    document.getElementById('register-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      try {
+        const res = await API.register(
+          document.getElementById('reg-username').value,
+          document.getElementById('reg-email').value,
+          document.getElementById('reg-password').value
+        );
+        Toast.success('Account created!');
+        setTimeout(() => window.location.href = 'chat.html', 500);
+      } catch (err) {
+        Toast.error(err.message || 'Registration failed');
+      }
+    });
+
+    // If already logged in, redirect
+    if (API.getToken()) {
+      window.location.href = 'chat.html';
+    }
+  </script>
+</body>
+</html>

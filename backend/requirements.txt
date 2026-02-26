@@ -1,0 +1,39 @@
+# ── Core Framework ───────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# ── Database ─────────────────────────────────────
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+aiosqlite==0.20.0
+alembic==1.14.1
+redis==5.2.1
+
+# ── AI / ML ──────────────────────────────────────
+openai==1.58.1
+tiktoken==0.8.0
+textblob==0.18.0.post0
+
+# ── Vector Store ─────────────────────────────────
+faiss-cpu==1.9.0.post1
+numpy==2.2.1
+
+# ── TTS ──────────────────────────────────────────
+elevenlabs==1.50.5
+httpx==0.28.1
+
+# ── Telephony ────────────────────────────────────
+twilio==9.4.3
+
+# ── Utilities ────────────────────────────────────
+python-dotenv==1.0.1
+slowapi==0.1.9
+aiofiles==24.1.0
+websockets==14.1
+loguru==0.7.3

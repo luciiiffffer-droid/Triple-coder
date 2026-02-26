@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI Voice Chatbot — Settings">
+    <title>AI Voice Bot — Settings</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <button class="mobile-toggle" id="menu-toggle">☰</button>
+
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">🤖</div>
+                <div>
+                    <div class="sidebar-title">VoiceBot AI</div>
+                    <div class="sidebar-subtitle">Assistant</div>
+                </div>
+            </div>
+            <ul class="nav-links">
+                <li><a href="chat.html"><span class="nav-icon">🎙️</span> Voice Chat</a></li>
+                <li><a href="dashboard.html"><span class="nav-icon">📊</span> Dashboard</a></li>
+                <li><a href="history.html"><span class="nav-icon">💬</span> History</a></li>
+                <li><a href="settings.html" class="active"><span class="nav-icon">⚙️</span> Settings</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="#" id="logout-btn" class="btn btn-secondary" style="width:100%;font-size:13px;">🚪 Sign Out</a>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1 class="page-title">⚙️ <span>Settings</span></h1>
+                <button class="btn btn-primary" id="save-btn">💾 Save Changes</button>
+            </div>
+
+            <div class="settings-grid">
+                <!-- Voice Settings -->
+                <div class="glass-card settings-section">
+                    <h3>🎙️ Voice Configuration</h3>
+                    <div class="form-group">
+                        <label class="form-label" for="language">Default Language</label>
+                        <select class="form-input" id="language">
+                            <option value="en">English</option>
+                            <option value="hi">Hindi</option>
+                            <option value="ta">Tamil</option>
+                            <option value="te">Telugu</option>
+                            <option value="bn">Bengali</option>
+                            <option value="mr">Marathi</option>
+                            <option value="gu">Gujarati</option>
+                            <option value="kn">Kannada</option>
+                            <option value="ml">Malayalam</option>
+                            <option value="auto">Auto-detect</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="voice-id">ElevenLabs Voice ID</label>
+                        <input class="form-input" type="text" id="voice-id" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="tts-provider">TTS Provider</label>
+                        <select class="form-input" id="tts-provider">
+                            <option value="elevenlabs">ElevenLabs</option>
+                            <option value="azure">Azure TTS</option>
+                            <option value="google">Google TTS</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Escalation Settings -->
+                <div class="glass-card settings-section">
+                    <h3>🚨 Escalation Rules</h3>
+                    <div class="form-group">
+                        <label class="form-label" for="esc-threshold">Sentiment Escalation Threshold</label>
+                        <input class="form-input" type="number" id="esc-threshold" step="0.1" min="-1" max="0"
+                            placeholder="-0.5">
+                        <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                            Conversations with avg sentiment below this value trigger auto-escalation.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base -->
+                <div class="glass-card settings-section">
+                    <h3>📚 Knowledge Base</h3>
+                    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+                        Add documents to the AI's knowledge base for more accurate responses.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label" for="kb-title">Document Title</label>
+                        <input class="form-input" type="text" id="kb-title" placeholder="e.g. Return Policy">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="kb-category">Category</label>
+                        <input class="form-input" type="text" id="kb-category" placeholder="e.g. policies"
+                            value="general">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="kb-content">Content</label>
+                        <textarea class="form-input" id="kb-content" rows="5"
+                            placeholder="Paste the document text here…" style="resize:vertical;"></textarea>
+                    </div>
+                    <button class="btn btn-secondary" id="ingest-btn">📥 Ingest Document</button>
+                </div>
+
+                <!-- Account Info -->
+                <div class="glass-card settings-section">
+                    <h3>👤 Account</h3>
+                    <div style="padding:16px 0;">
+                        <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">Username</div>
+                        <div id="account-username" style="font-size:16px;font-weight:600;">—</div>
+                    </div>
+                    <div style="padding:16px 0;border-top:1px solid var(--border-glass);">
+                        <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">Email</div>
+                        <div id="account-email" style="font-size:16px;font-weight:600;">—</div>
+                    </div>
+                    <div style="padding:16px 0;border-top:1px solid var(--border-glass);">
+                        <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">Role</div>
+                        <div id="account-role" style="font-size:16px;font-weight:600;">—</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="js/app.js"></script>
+    <script>
+        API.requireAuth();
+
+        // Load settings
+        async function loadSettings() {
+            try {
+                const s = await API.request('/api/admin/settings');
+                document.getElementById('language').value = s.language || 'en';
+                document.getElementById('voice-id').value = s.voice_id || '';
+                document.getElementById('tts-provider').value = s.tts_provider || 'elevenlabs';
+                document.getElementById('esc-threshold').value = s.escalation_threshold || -0.5;
+            } catch (e) {
+                // Non-admin may not have access
+            }
+
+            // Load user info
+            try {
+                const user = await API.request('/api/auth/me');
+                document.getElementById('account-username').textContent = user.username;
+                document.getElementById('account-email').textContent = user.email;
+                document.getElementById('account-role').textContent = user.is_admin ? 'Admin' : 'User';
+            } catch (e) { }
+        }
+
+        // Save settings
+        document.getElementById('save-btn').addEventListener('click', async () => {
+            try {
+                await API.request('/api/admin/settings', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        language: document.getElementById('language').value,
+                        voice_id: document.getElementById('voice-id').value,
+                        tts_provider: document.getElementById('tts-provider').value,
+                        escalation_threshold: parseFloat(document.getElementById('esc-threshold').value),
+                    })
+                });
+                Toast.success('Settings saved');
+            } catch (e) {
+                Toast.error('Failed to save settings (admin required)');
+            }
+        });
+
+        // Knowledge ingest
+        document.getElementById('ingest-btn').addEventListener('click', async () => {
+            const title = document.getElementById('kb-title').value.trim();
+            const content = document.getElementById('kb-content').value.trim();
+            const category = document.getElementById('kb-category').value.trim();
+
+            if (!title || !content) {
+                Toast.error('Title and content are required');
+                return;
+            }
+
+            try {
+                const res = await API.request('/api/knowledge/ingest', {
+                    method: 'POST',
+                    body: JSON.stringify({ title, content, category })
+                });
+                Toast.success(res.message);
+                document.getElementById('kb-title').value = '';
+                document.getElementById('kb-content').value = '';
+            } catch (e) {
+                Toast.error('Ingestion failed (admin required)');
+            }
+        });
+
+        document.getElementById('menu-toggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('open');
+        });
+        document.getElementById('logout-btn').addEventListener('click', e => {
+            e.preventDefault();
+            API.logout();
+        });
+
+        loadSettings();
+    </script>
+</body>
+
+</html>
