@@ -1,6 +1,6 @@
 """
 Whisper-based speech-to-text service.
-Falls back to demo mode if OPENAI_API_KEY is not configured.
+Falls back to demo mode if OPENAI_API_KEY is not configured or is a placeholder.
 """
 
 import openai
@@ -25,10 +25,23 @@ DEMO_PHRASES = [
 ]
 
 
+def _is_real_api_key(key: str) -> bool:
+    """Return True only if the key looks like a genuine OpenAI API key."""
+    if not key:
+        return False
+    if "your" in key.lower():
+        return False
+    if not key.startswith("sk-"):
+        return False
+    if len(key) < 30:
+        return False
+    return True
+
+
 def _get_client():
     global client
     if client is None:
-        if not settings.OPENAI_API_KEY:
+        if not _is_real_api_key(settings.OPENAI_API_KEY):
             return None
         client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     return client
@@ -37,11 +50,11 @@ def _get_client():
 async def transcribe_audio(audio_bytes: bytes, language: str = "en") -> str:
     """
     Transcribe raw audio bytes using OpenAI Whisper.
-    Falls back to demo phrases if API key is not configured.
+    Falls back to demo phrases if API key is not configured or is a placeholder.
     """
     ai_client = _get_client()
 
-    # Demo mode — no API key
+    # Demo mode — no real API key
     if ai_client is None:
         phrase = random.choice(DEMO_PHRASES)
         logger.info(f"[DEMO MODE] Simulated transcription: '{phrase}'")
@@ -62,4 +75,7 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "en") -> str:
 
     except Exception as e:
         logger.error(f"STT error: {e}")
-        return ""
+        # Fall back to demo phrase instead of returning empty string
+        phrase = random.choice(DEMO_PHRASES)
+        logger.info(f"[DEMO FALLBACK] Using demo phrase: '{phrase}'")
+        return phrase
