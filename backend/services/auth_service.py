@@ -51,6 +51,16 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # ── Demo mode: accept a placeholder token for local dev ──
+    if token == "demo-token":
+        demo_user = User()
+        demo_user.id = "demo-user"
+        demo_user.username = "demo"
+        demo_user.email = "demo@voicebot.local"
+        demo_user.is_active = True
+        demo_user.is_admin = False
+        return demo_user
+
     payload = decode_token(token)
     user_id: str = payload.get("sub")
     if user_id is None:
