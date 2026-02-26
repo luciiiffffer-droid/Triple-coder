@@ -4,504 +4,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AI Voice Chatbot — Interactive Assistant">
-    <title>AI Voice Bot — Chat</title>
+    <meta name="description" content="VoiceBot AI — Intelligent Conversation Assistant">
+    <title>VoiceBot AI — Chat</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* ═══ PREMIUM CHAT INTERFACE ═══ */
-        .chat-area {
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 100px);
-            gap: 0;
-        }
-
-        .chat-card {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
-            border: 1px solid var(--border-glass);
-            border-radius: 20px;
-            overflow: hidden;
-            backdrop-filter: blur(20px);
-        }
-
-        .chat-header-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 16px 20px;
-            background: linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.08));
-            border-bottom: 1px solid var(--border-glass);
-        }
-
-        .chat-header-bar .bot-avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: var(--accent-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            box-shadow: 0 0 20px var(--accent-glow);
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        .chat-header-bar .bot-info h3 {
-            margin: 0;
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .chat-header-bar .bot-info span {
-            font-size: 12px;
-            color: #10b981;
-        }
-
-        .chat-header-bar .bot-info span::before {
-            content: '●';
-            margin-right: 4px;
-        }
-
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            scroll-behavior: smooth;
-        }
-
-        /* Message bubbles */
-        .message-bubble {
-            display: flex;
-            gap: 10px;
-            max-width: 85%;
-            animation: messageSlide 0.3s ease-out;
-        }
-
-        .message-bubble.user {
-            align-self: flex-end;
-            flex-direction: row-reverse;
-        }
-
-        .message-bubble.assistant {
-            align-self: flex-start;
-        }
-
-        @keyframes messageSlide {
-            from {
-                opacity: 0;
-                transform: translateY(15px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .message-avatar {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-
-        .assistant .message-avatar {
-            background: var(--accent-gradient);
-            box-shadow: 0 2px 10px var(--accent-glow);
-        }
-
-        .user .message-avatar {
-            background: linear-gradient(135deg, #10b981, #059669);
-        }
-
-        .message-content {
-            padding: 12px 16px;
-            border-radius: 18px;
-            font-size: 14px;
-            line-height: 1.6;
-            position: relative;
-        }
-
-        .assistant .message-content {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-bottom-left-radius: 4px;
-            color: var(--text-primary);
-        }
-
-        .user .message-content {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border-bottom-right-radius: 4px;
-            color: white;
-        }
-
-        .message-text {
-            word-wrap: break-word;
-        }
-
-        .message-text strong {
-            font-weight: 600;
-        }
-
-        .message-meta {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            margin-top: 6px;
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .user .message-meta {
-            justify-content: flex-end;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .emotion-tag {
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .emotion-tag.positive,
-        .emotion-tag.very_positive {
-            background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-        }
-
-        .emotion-tag.negative,
-        .emotion-tag.very_negative {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        .emotion-tag.neutral {
-            background: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
-        }
-
-        .urgent-tag {
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-            font-weight: 700;
-        }
-
-        /* Quick reply chips */
-        .quick-replies {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            padding: 10px 20px 14px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            background: rgba(15, 23, 42, 0.5);
-        }
-
-        .quick-chip {
-            padding: 8px 16px;
-            border-radius: 20px;
-            border: 1px solid var(--border-glass);
-            background: rgba(99, 102, 241, 0.08);
-            color: var(--text-secondary);
-            font-size: 12px;
-            font-family: var(--font-family);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-
-        .quick-chip:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: var(--accent-primary);
-            color: var(--text-primary);
-            transform: translateY(-1px);
-        }
-
-        /* Typing indicator */
-        .typing-indicator {
-            display: none;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 20px;
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-
-        .typing-indicator.visible {
-            display: flex;
-        }
-
-        .typing-dots {
-            display: flex;
-            gap: 4px;
-        }
-
-        .typing-dots span {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--accent-primary);
-            animation: bounce 1.2s ease-in-out infinite;
-        }
-
-        .typing-dots span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-dots span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes bounce {
-
-            0%,
-            80%,
-            100% {
-                transform: translateY(0);
-                opacity: 0.4;
-            }
-
-            40% {
-                transform: translateY(-10px);
-                opacity: 1;
-            }
-        }
-
-        /* Input bar */
-        .input-bar {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 16px;
-            background: linear-gradient(90deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
-            border-top: 1px solid var(--border-glass);
-            border-radius: 0 0 20px 20px;
-        }
-
-        .input-bar input {
-            flex: 1;
-            padding: 14px 18px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border-glass);
-            border-radius: 25px;
-            color: var(--text-primary);
-            font-family: var(--font-family);
-            font-size: 14px;
-            outline: none;
-            transition: all 0.2s;
-        }
-
-        .input-bar input:focus {
-            border-color: var(--accent-primary);
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .input-bar input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .send-btn,
-        .mic-toggle {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.2s;
-            flex-shrink: 0;
-        }
-
-        .send-btn {
-            background: var(--accent-gradient);
-            color: white;
-            box-shadow: 0 4px 15px var(--accent-glow);
-        }
-
-        .send-btn:hover {
-            transform: scale(1.08);
-            box-shadow: 0 6px 25px var(--accent-glow);
-        }
-
-        .send-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .mic-toggle {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border-glass);
-            color: var(--text-secondary);
-        }
-
-        .mic-toggle:hover {
-            background: rgba(99, 102, 241, 0.15);
-            color: var(--accent-primary);
-        }
-
-        .mic-toggle.recording {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: #ef4444;
-            color: #ef4444;
-            animation: pulse 1s ease-in-out infinite;
-        }
-
-        /* Header actions */
-        .header-actions {
-            display: flex;
-            gap: 8px;
-            margin-left: auto;
-        }
-
-        .header-actions button {
-            padding: 6px 14px;
-            border-radius: 8px;
-            border: 1px solid var(--border-glass);
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-secondary);
-            font-size: 12px;
-            font-family: var(--font-family);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .header-actions button:hover {
-            background: rgba(99, 102, 241, 0.15);
-            border-color: var(--accent-primary);
-            color: var(--text-primary);
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
-            }
-
-            50% {
-                box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
-            }
-        }
-
-        /* Scrollbar */
-        .chat-messages::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .chat-messages::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-    </style>
 </head>
 
 <body>
     <div class="app-container">
         <button class="mobile-toggle" id="menu-toggle">☰</button>
 
+        <!-- Sidebar -->
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">🤖</div>
-                <div>
+                <div class="sidebar-brand">
                     <div class="sidebar-title">VoiceBot AI</div>
                     <div class="sidebar-subtitle">Assistant</div>
                 </div>
             </div>
             <ul class="nav-links">
-                <li><a href="chat.html" class="active"><span class="nav-icon">💬</span> Chat</a></li>
-                <li><a href="dashboard.html"><span class="nav-icon">📊</span> Dashboard</a></li>
-                <li><a href="history.html"><span class="nav-icon">📋</span> History</a></li>
-                <li><a href="settings.html"><span class="nav-icon">⚙️</span> Settings</a></li>
+                <li><a href="chat.html" class="active"><span class="nav-icon">💬</span><span
+                            class="nav-label">Chat</span></a></li>
+                <li><a href="dashboard.html"><span class="nav-icon">📊</span><span
+                            class="nav-label">Dashboard</span></a></li>
+                <li><a href="history.html"><span class="nav-icon">📋</span><span class="nav-label">History</span></a>
+                </li>
+                <li><a href="settings.html"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a>
+                </li>
             </ul>
             <div class="sidebar-footer">
-                <a href="#" id="logout-btn" class="btn btn-secondary" style="width:100%;font-size:13px;">🚪 Sign Out</a>
+                <a href="#" id="logout-btn" class="btn btn-secondary"
+                    style="width:100%;font-size:13px;justify-content:center;">
+                    🚪 Sign Out
+                </a>
             </div>
         </nav>
 
+        <!-- Main -->
         <main class="main-content">
-            <div class="chat-area">
-                <div class="chat-card">
-                    <!-- Chat header -->
-                    <div class="chat-header-bar">
-                        <div class="bot-avatar">🤖</div>
-                        <div class="bot-info">
-                            <h3>VoiceBot AI</h3>
-                            <span>Online</span>
+            <div class="chat-outer">
+
+                <!-- Chat Shell -->
+                <div class="chat-shell">
+
+                    <!-- Top Bar -->
+                    <div class="chat-topbar">
+                        <div class="chat-topbar-avatar">🤖</div>
+                        <div class="chat-topbar-info">
+                            <div class="chat-topbar-name">VoiceBot AI</div>
+                            <div class="chat-topbar-status">Online — Ready to help</div>
                         </div>
-                        <div id="emotion-indicator"
-                            style="margin-left:auto; font-size:13px; padding:4px 12px; border-radius:12px; background:rgba(59,130,246,0.15); color:#3b82f6;">
-                            😐 Neutral</div>
-                        <div class="header-actions">
-                            <button id="escalate-btn" title="Transfer to human agent">🧑‍💼 Human</button>
+                        <div id="emotion-chip" class="emotion-chip">😐 Neutral</div>
+                        <div class="topbar-actions">
+                            <button id="escalate-btn" title="Transfer to human agent">🧑‍💼 Escalate</button>
                         </div>
                     </div>
 
                     <!-- Messages -->
                     <div class="chat-messages" id="chat-messages">
-                        <div class="message-bubble assistant">
-                            <div class="message-avatar">🤖</div>
-                            <div class="message-content">
-                                <div class="message-text">Hey there! 👋 I'm <strong>VoiceBot AI</strong> — your personal
-                                    assistant. I can help with customer support, answer questions about science,
-                                    technology, history, and more! Type a message or try one of the quick options below.
-                                    🚀</div>
-                                <div class="message-meta"><span>Just now</span></div>
+                        <div class="date-divider">Today</div>
+                        <div class="msg assistant">
+                            <div class="msg-avatar">🤖</div>
+                            <div class="msg-body">
+                                <div class="msg-bubble">
+                                    Hey there! 👋 I'm <strong>VoiceBot AI</strong> — your intelligent assistant.<br>
+                                    Ask me anything: science, tech, history, math, or customer support. I'm ready! 🚀
+                                </div>
+                                <div class="msg-meta"><span>Just now</span></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Typing indicator -->
+                    <!-- Typing Indicator -->
                     <div class="typing-indicator" id="typing-indicator">
-                        <span>🤖 VoiceBot is thinking</span>
+                        <div class="msg-avatar"
+                            style="background:var(--grad-aurora);border-radius:var(--r-sm);font-size:13px;width:28px;height:28px;">
+                            🤖</div>
+                        <span style="font-size:12px;">VoiceBot is thinking</span>
                         <div class="typing-dots"><span></span><span></span><span></span></div>
                     </div>
 
-                    <!-- Quick replies -->
-                    <div class="quick-replies" id="quick-replies">
-                        <button class="quick-chip" data-msg="Tell me a fun fact">✨ Fun Fact</button>
-                        <button class="quick-chip" data-msg="What is AI?">🤖 What is AI?</button>
-                        <button class="quick-chip" data-msg="Tell me about space">🚀 Space</button>
-                        <button class="quick-chip" data-msg="I need help with my order">📦 My Order</button>
-                        <button class="quick-chip" data-msg="What's the capital of India?">🌍 Geography</button>
-                        <button class="quick-chip" data-msg="Tell me about DNA">🧬 Science</button>
-                        <button class="quick-chip" data-msg="Tell me a joke">😂 Joke</button>
-                        <button class="quick-chip" data-msg="What is Python?">🐍 Python</button>
+                    <!-- Quick Chips -->
+                    <div class="quick-chips" id="quick-chips">
+                        <button class="chip" data-msg="Tell me a fun fact">✨ Fun Fact</button>
+                        <button class="chip" data-msg="What is AI?">🤖 What is AI?</button>
+                        <button class="chip" data-msg="Tell me about space">🚀 Space</button>
+                        <button class="chip" data-msg="What is the capital of Germany?">🌍 Geography</button>
+                        <button class="chip" data-msg="What is 15 multiplied by 24?">🧮 Math</button>
+                        <button class="chip" data-msg="Tell me about DNA">🧬 Science</button>
+                        <button class="chip" data-msg="Tell me a joke">😂 Joke</button>
+                        <button class="chip" data-msg="I need help with my order">📦 Support</button>
                     </div>
 
-                    <!-- Input bar -->
-                    <div class="input-bar">
-                        <button class="mic-toggle" id="mic-btn" title="Voice input">🎙️</button>
-                        <input type="text" id="text-input" placeholder="Ask me anything..." autocomplete="off">
-                        <button class="send-btn" id="send-btn" title="Send">➤</button>
+                    <!-- Input Bar -->
+                    <div class="chat-input-bar">
+                        <button class="mic-btn" id="mic-btn" title="Voice input">🎙️</button>
+                        <input type="text" id="text-input" placeholder="Ask me anything…" autocomplete="off">
+                        <button class="send-btn" id="send-btn" title="Send">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
                     </div>
-                </div>
-            </div>
+
+                </div><!-- /chat-shell -->
+            </div><!-- /chat-outer -->
         </main>
     </div>
 
@@ -515,16 +124,16 @@
         const micBtn = document.getElementById('mic-btn');
         const textInput = document.getElementById('text-input');
         const sendBtn = document.getElementById('send-btn');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const emotionIndicator = document.getElementById('emotion-indicator');
+        const typingEl = document.getElementById('typing-indicator');
+        const emotionChip = document.getElementById('emotion-chip');
 
-        let textSessionId = null;
+        let sessionId = null;
 
-        // ──────── TEXT CHAT ────────
-        async function sendTextMessage() {
+        // ── TEXT CHAT ──────────────────────────────────────────
+        async function sendMessage() {
             const message = textInput.value.trim();
             if (!message) return;
-            addMessage('user', message);
+            addMsg('user', message);
             textInput.value = '';
             sendBtn.disabled = true;
             showTyping(true);
@@ -532,19 +141,20 @@
             try {
                 const res = await API.request('/api/chat/text', {
                     method: 'POST',
-                    body: JSON.stringify({ message, session_id: textSessionId, language: 'en' })
+                    body: JSON.stringify({ message, session_id: sessionId, language: 'en' })
                 });
-                textSessionId = res.session_id;
+                sessionId = res.session_id;
 
-                // Simulate realistic typing delay
-                const delay = Math.min(800 + res.ai_response.length * 8, 2500);
+                // Realistic typing delay based on response length
+                const delay = Math.min(600 + res.ai_response.length * 7, 2200);
                 await new Promise(r => setTimeout(r, delay));
 
-                addMessage('assistant', res.ai_response, res);
+                addMsg('assistant', res.ai_response, res);
                 updateEmotion(res.emotion, res.is_urgent);
                 if (res.fraud_alert) Toast.error('⚠️ Suspicious content detected');
+
             } catch (err) {
-                addMessage('assistant', "Oops! I had a connection hiccup. Could you try again? 😅");
+                addMsg('assistant', "Oops! I had a connection hiccup. Please try again. 😅");
                 Toast.error('Connection error');
             } finally {
                 sendBtn.disabled = false;
@@ -553,36 +163,36 @@
             }
         }
 
-        sendBtn.addEventListener('click', sendTextMessage);
+        sendBtn.addEventListener('click', sendMessage);
         textInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTextMessage(); }
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
         });
 
-        // ──────── QUICK REPLIES ────────
-        document.querySelectorAll('.quick-chip').forEach(chip => {
+        // ── QUICK CHIPS ────────────────────────────────────────
+        document.querySelectorAll('.chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 textInput.value = chip.dataset.msg;
-                sendTextMessage();
+                sendMessage();
             });
         });
 
-        // ──────── VOICE ────────
+        // ── VOICE ──────────────────────────────────────────────
         const voiceChat = new VoiceChat({
-            onStatusChange: s => { },
+            onStatusChange: () => { },
             onRecordingStart: () => {
                 micBtn.classList.add('recording');
-                micBtn.innerHTML = '⏹️';
-                Toast.info('🎙️ Recording... click again to stop');
+                micBtn.textContent = '⏹️';
+                Toast.info('🎙️ Recording… tap again to stop');
             },
             onRecordingStop: () => {
                 micBtn.classList.remove('recording');
-                micBtn.innerHTML = '🎙️';
+                micBtn.textContent = '🎙️';
                 showTyping(true);
             },
-            onTranscript: text => addMessage('user', text),
+            onTranscript: text => addMsg('user', text),
             onResponse: data => {
                 showTyping(false);
-                addMessage('assistant', data.ai_response, data);
+                addMsg('assistant', data.ai_response, data);
                 updateEmotion(data.emotion, data.is_urgent);
                 if (data.audio_base64) VoiceChat.playAudioBase64(data.audio_base64);
             },
@@ -590,48 +200,56 @@
         });
         micBtn.addEventListener('click', () => voiceChat.toggleRecording());
 
-        // ──────── HELPERS ────────
-        function addMessage(role, text, meta = null) {
-            const div = document.createElement('div');
-            div.className = `message-bubble ${role}`;
-            const avatar = role === 'user' ? '👤' : '🤖';
+        // ── HELPERS ────────────────────────────────────────────
+        function addMsg(role, text, meta = null) {
+            const wrap = document.createElement('div');
+            wrap.className = `msg ${role}`;
 
-            // Format bold text
-            let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            const avatar = role === 'user' ? '👤' : '🤖';
+            let html = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
 
             let metaHtml = `<span>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
             if (meta) {
                 if (meta.emotion) metaHtml += `<span class="emotion-tag ${meta.emotion}">${meta.emotion.replace('_', ' ')}</span>`;
-                if (meta.is_urgent) metaHtml += `<span class="urgent-tag">⚠ URGENT</span>`;
+                if (meta.is_urgent) metaHtml += `<span class="urgent-tag">⚠ Urgent</span>`;
             }
 
-            div.innerHTML = `
-        <div class="message-avatar">${avatar}</div>
-        <div class="message-content">
-          <div class="message-text">${formattedText}</div>
-          <div class="message-meta">${metaHtml}</div>
-        </div>`;
-            chatMessages.appendChild(div);
+            wrap.innerHTML = `
+      <div class="msg-avatar">${avatar}</div>
+      <div class="msg-body">
+        <div class="msg-bubble">${html}</div>
+        <div class="msg-meta">${metaHtml}</div>
+      </div>`;
+            chatMessages.appendChild(wrap);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
         function showTyping(v) {
-            typingIndicator.classList.toggle('visible', v);
+            typingEl.classList.toggle('vis', v);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
         function updateEmotion(emotion, isUrgent) {
-            const emojis = { very_positive: '😄', positive: '🙂', neutral: '😐', negative: '😟', very_negative: '😢' };
-            const colors = { very_positive: '#10b981', positive: '#34d399', neutral: '#3b82f6', negative: '#f59e0b', very_negative: '#ef4444' };
-            emotionIndicator.style.background = `${colors[emotion] || '#3b82f6'}22`;
-            emotionIndicator.style.color = colors[emotion] || '#3b82f6';
-            emotionIndicator.textContent = `${emojis[emotion] || '😐'} ${(emotion || 'neutral').replace('_', ' ')}`;
-            if (isUrgent) emotionIndicator.textContent += ' ⚠️';
+            const map = {
+                very_positive: ['😄', '#10b981'],
+                positive: ['🙂', '#34d399'],
+                neutral: ['😐', '#06b6d4'],
+                negative: ['😟', '#f59e0b'],
+                very_negative: ['😢', '#f43f5e'],
+            };
+            const [emoji, color] = map[emotion] || map.neutral;
+            emotionChip.textContent = `${emoji} ${(emotion || 'neutral').replace('_', ' ')}`;
+            emotionChip.style.background = color + '18';
+            emotionChip.style.color = color;
+            emotionChip.style.borderColor = color + '40';
+            if (isUrgent) emotionChip.textContent += ' ⚠️';
         }
 
         // Escalation
         document.getElementById('escalate-btn').addEventListener('click', async () => {
-            const sid = textSessionId || voiceChat.sessionId;
+            const sid = sessionId || voiceChat.sessionId;
             if (!sid) { Toast.info('Start a conversation first'); return; }
             if (confirm('Transfer this conversation to a human agent?')) {
                 try {
@@ -639,13 +257,15 @@
                         method: 'POST',
                         body: JSON.stringify({ conversation_id: sid, reason: 'User requested', priority: 'normal' })
                     });
-                    Toast.success('Transferred to human agent');
-                    addMessage('assistant', '🧑‍💼 This conversation has been escalated to a human agent. Someone will be with you shortly.');
+                    Toast.success('Transferred to human agent ✅');
+                    addMsg('assistant', '🧑‍💼 A human agent has been notified and will join shortly. Thank you for your patience!');
                 } catch (e) { Toast.error('Escalation failed'); }
             }
         });
 
-        document.getElementById('menu-toggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+        document.getElementById('menu-toggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('open');
+        });
         document.getElementById('logout-btn').addEventListener('click', e => { e.preventDefault(); API.logout(); });
         textInput.focus();
     </script>

@@ -1,5 +1,5 @@
 /**
- * Dashboard chart rendering using Chart.js.
+ * Dashboard charts — Plus Jakarta Sans font, new color palette.
  */
 
 let timelineChart = null;
@@ -7,7 +7,6 @@ let emotionChart = null;
 
 async function loadDashboard() {
     try {
-        // Load summary stats
         const summary = await API.request('/api/analytics/summary');
         document.getElementById('stat-total').textContent = summary.total_conversations;
         document.getElementById('stat-active').textContent = summary.active_conversations;
@@ -16,7 +15,6 @@ async function loadDashboard() {
         document.getElementById('stat-urgent').textContent = summary.urgent_messages;
         document.getElementById('stat-today').textContent = summary.conversations_today;
 
-        // Sentiment display
         const sentVal = document.getElementById('sentiment-value');
         const sentLabel = document.getElementById('sentiment-label');
         const s = summary.avg_sentiment;
@@ -25,17 +23,15 @@ async function loadDashboard() {
             sentVal.style.color = '#10b981';
             sentLabel.textContent = '😊 Overall Positive';
         } else if (s < -0.2) {
-            sentVal.style.color = '#ef4444';
+            sentVal.style.color = '#f43f5e';
             sentLabel.textContent = '😟 Overall Negative';
         } else {
-            sentVal.style.color = '#3b82f6';
+            sentVal.style.color = '#06b6d4';
             sentLabel.textContent = '😐 Neutral';
         }
 
-        // Emotion pie chart
         renderEmotionChart(summary.top_emotions);
 
-        // Timeline
         const timeline = await API.request('/api/analytics/timeline?days=7');
         renderTimelineChart(timeline.timeline);
 
@@ -48,7 +44,6 @@ async function loadDashboard() {
 function renderTimelineChart(data) {
     const ctx = document.getElementById('timeline-chart');
     if (!ctx) return;
-
     if (timelineChart) timelineChart.destroy();
 
     timelineChart = new Chart(ctx, {
@@ -59,32 +54,29 @@ function renderTimelineChart(data) {
                 label: 'Conversations',
                 data: data.map(d => d.conversations),
                 borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                backgroundColor: 'rgba(99,102,241,0.08)',
                 fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#6366f1',
+                tension: 0.45,
+                pointBackgroundColor: '#8b5cf6',
                 pointBorderColor: '#6366f1',
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                borderWidth: 2,
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                borderWidth: 2.5,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false,
-                }
-            },
+            plugins: { legend: { display: false } },
             scales: {
                 x: {
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#64748b', font: { family: 'Inter' } },
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: '#4a5568', font: { family: 'Plus Jakarta Sans', size: 11 } },
                 },
                 y: {
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#64748b', font: { family: 'Inter' }, stepSize: 1 },
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: '#4a5568', font: { family: 'Plus Jakarta Sans', size: 11 }, stepSize: 1 },
                     beginAtZero: true,
                 }
             }
@@ -95,24 +87,20 @@ function renderTimelineChart(data) {
 function renderEmotionChart(emotions) {
     const ctx = document.getElementById('emotion-chart');
     if (!ctx) return;
-
     if (emotionChart) emotionChart.destroy();
 
     const labels = Object.keys(emotions);
     const values = Object.values(emotions);
 
-    if (labels.length === 0) {
-        labels.push('No data');
-        values.push(1);
-    }
+    if (labels.length === 0) { labels.push('No data'); values.push(1); }
 
     const colors = {
         very_positive: '#10b981',
         positive: '#34d399',
-        neutral: '#3b82f6',
+        neutral: '#06b6d4',
         negative: '#f59e0b',
-        very_negative: '#ef4444',
-        'No data': '#334155',
+        very_negative: '#f43f5e',
+        'No data': '#1e2a40',
     };
 
     emotionChart = new Chart(ctx, {
@@ -121,9 +109,10 @@ function renderEmotionChart(emotions) {
             labels,
             datasets: [{
                 data: values,
-                backgroundColor: labels.map(l => colors[l] || '#6366f1'),
-                borderColor: 'rgba(0,0,0,0.3)',
+                backgroundColor: labels.map(l => (colors[l] || '#6366f1') + 'cc'),
+                borderColor: labels.map(l => colors[l] || '#6366f1'),
                 borderWidth: 2,
+                hoverOffset: 6,
             }]
         },
         options: {
@@ -133,13 +122,15 @@ function renderEmotionChart(emotions) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: '#94a3b8',
-                        font: { family: 'Inter', size: 12 },
+                        color: '#8892b0',
+                        font: { family: 'Plus Jakarta Sans', size: 12 },
                         padding: 16,
+                        usePointStyle: true,
+                        pointStyleWidth: 8,
                     }
                 }
             },
-            cutout: '60%',
+            cutout: '62%',
         }
     });
 }
