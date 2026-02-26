@@ -1,50 +1,16 @@
 """
 GPT-powered conversation engine with multi-turn context memory.
 Falls back to a rich demo engine with general knowledge if OPENAI_API_KEY is not configured.
-When a question is not found in the local knowledge base, it falls back to Wikipedia.
 """
 
-import asyncio
 import openai
 import random
 import re
 import ast
 import operator
-import wikipediaapi
 from typing import List, Dict, Optional
 from config import settings
 from loguru import logger
-
-# Wikipedia client (thread-safe, reusable)
-_wiki = wikipediaapi.Wikipedia(
-    user_agent="AIVoiceChatBot/1.0 (contact@voicebot.ai)",
-    language="en",
-)
-
-
-async def _wikipedia_search(query: str) -> Optional[str]:
-    """Search Wikipedia for `query`, return a short conversational summary or None."""
-    try:
-        # Run the blocking wikipedia-api call in a thread pool so we don't block the event loop
-        loop = asyncio.get_event_loop()
-        page = await loop.run_in_executor(None, _wiki.page, query)
-        if not page.exists():
-            # Try searching with just the first meaningful word
-            short = query.split()[0] if query.split() else query
-            page = await loop.run_in_executor(None, _wiki.page, short)
-        if page.exists() and page.summary:
-            # Return the first 2 sentences, max 400 chars
-            sentences = page.summary.split(". ")
-            snippet = ". ".join(sentences[:2]).strip()
-            if not snippet.endswith("."):
-                snippet += "."
-            if len(snippet) > 400:
-                snippet = snippet[:397] + "..."
-            return f"🌐 Here's what I found on Wikipedia about **{page.title}**:\n\n{snippet}"
-        return None
-    except Exception as e:
-        logger.warning(f"Wikipedia lookup failed for '{query}': {e}")
-        return None
 
 client = None
 
@@ -269,6 +235,73 @@ _KNOWLEDGE = {
     'fun fact': "Fun fact: **Honey never spoils!** 🍯 Archaeologists found 3,000-year-old honey in Egyptian tombs that was still edible. Also: octopuses have 3 hearts, and bananas are technically berries (strawberries aren't!).",
     'random fact': "Did you know? **The shortest war in history** lasted 38–45 minutes: Britain vs. Zanzibar, August 27, 1896. 🦩 A group of flamingos is called a 'flamboyance'. A group of porcupines is called a 'prickle'!",
     'animal': "Nature is amazing! 🐋 Blue whales are the largest animals ever (up to 30m long). Hummingbirds can fly backwards. Elephants are the only animals that can't jump. Crows can recognize human faces!",
+
+    # ══════════════════════════════════════════════════════
+    # --- HACKATHON / PROJECT KNOWLEDGE ---
+    # ══════════════════════════════════════════════════════
+
+    # -- About This Project --
+    'voicebot': "**VoiceBot AI** is a real-time, human-like AI Voice Chatbot built for a hackathon. 🤖 It supports multi-language conversations, emotion detection, fraud detection, voice biometrics, and integrates with Twilio, ElevenLabs, and OpenAI — replacing traditional IVR systems!",
+    'this project': "This project is an **AI Voice Chatbot** — a production-ready solution that handles voice and text interactions. 🎙️ It uses FastAPI (backend), SQLite (database), OpenAI Whisper (STT), ElevenLabs TTS, and a modern HTML/CSS/JS frontend with real-time WebSocket communication.",
+    'project': "Our project is an **AI-powered Voice Chatbot** that uses NLP, Speech-to-Text (Whisper), Text-to-Speech (ElevenLabs), sentiment analysis, fraud detection, and multi-language support — all served through a FastAPI backend with a real-time WebSocket interface. 🏆",
+
+    # -- Tech Stack --
+    'fastapi': "**FastAPI** is a modern, high-performance Python web framework for building APIs. ⚡ It's based on standard Python type hints, auto-generates Swagger docs, and is one of the fastest Python frameworks available — used as the backend of this chatbot.",
+    'websocket': "**WebSockets** provide full-duplex communication channels over a single TCP connection. 🔌 Unlike HTTP (request-response), WebSocket keeps a persistent connection open — perfect for real-time voice chat, live data, and chat applications like this one.",
+    'sqlite': "**SQLite** is a lightweight, serverless, self-contained SQL database engine. 🗄️ It stores data in a single file — ideal for development, prototyping, and small-to-medium applications. This chatbot uses it to store conversations, messages, and analytics.",
+    'postgresql': "**PostgreSQL** is a powerful, open-source relational database. 🐘 It supports advanced data types, full-text search, JSON, and is ACID-compliant. This project supports PostgreSQL for production deployments via the DATABASE_URL config.",
+    'redis': "**Redis** is an in-memory data structure store used as a database, cache, and message broker. ⚡ It's blazing fast (sub-millisecond responses) and is used in this project for caching and rate limiting.",
+    'docker': "**Docker** containerizes applications into isolated environments. 🐳 The entire chatbot stack — backend, frontend, PostgreSQL, Redis — can be run with a single `docker compose up` command, ensuring consistent behavior across any machine.",
+    'nginx': "**Nginx** is a high-performance web server and reverse proxy. 🌐 In this project it serves the static frontend files and can proxy API requests to the FastAPI backend — enabling clean routing and SSL termination in production.",
+    'uvicorn': "**Uvicorn** is an ASGI server implementation for Python. ⚡ It runs FastAPI applications with lightning-fast async performance. In this project it powers the backend WebSocket and HTTP endpoints.",
+    'sqlalchemy': "**SQLAlchemy** is Python's most powerful ORM (Object-Relational Mapper). 🗄️ This project uses SQLAlchemy with async support to perform non-blocking database operations — keeping the server responsive even under heavy load.",
+
+    # -- AI & ML Concepts --
+    'nlp': "**Natural Language Processing (NLP)** is a branch of AI that enables computers to understand, interpret, and generate human language. 🗣️ This chatbot uses NLP for intent detection, sentiment analysis, entity recognition, and generating contextually appropriate responses.",
+    'natural language processing': "**NLP** lets machines understand human language. 🧠 It powers voice assistants, chatbots, translation tools, and sentiment analysis. This chatbot uses NLP to understand user intent, detect emotions, and respond in multiple languages.",
+    'speech to text': "**Speech-to-Text (STT)** converts spoken audio into written text. 🎙️→📝 This chatbot uses **OpenAI Whisper** — a state-of-the-art multilingual STT model that supports 99+ languages and is highly noise-resistant.",
+    'stt': "**STT (Speech-to-Text)** converts audio into text. 🎙️ This project uses **OpenAI Whisper** — trained on 680,000 hours of multilingual audio. It handles accents, noise, and multiple languages automatically.",
+    'whisper': "**OpenAI Whisper** is a state-of-the-art automatic speech recognition (ASR) model. 🎙️ Trained on 680,000 hours of multilingual web audio, it achieves near-human accuracy and supports 99+ languages — used in this chatbot for voice input transcription.",
+    'text to speech': "**Text-to-Speech (TTS)** converts written text into natural-sounding audio. 📝→🔊 This chatbot uses **ElevenLabs** — the industry leader in AI voice synthesis — to generate lifelike, emotionally expressive voice responses.",
+    'tts': "**TTS (Text-to-Speech)** converts AI-generated text into audio. This project uses **ElevenLabs** which offers ultra-realistic, low-latency voice synthesis with 29+ languages and emotional control. 🔊",
+    'elevenlabs': "**ElevenLabs** is an AI voice company offering the world's most realistic TTS technology. 🔊 Their API converts text to speech with human-like intonation, emotion, and accent. It's used in this chatbot to give the AI a natural voice.",
+    'llm': "**Large Language Models (LLMs)** are AI models trained on massive text datasets to understand and generate human language. 🧠 Examples: GPT-4, Claude, Gemini, LLaMA. This chatbot uses **GPT-4o** (via OpenAI API) as its core reasoning engine.",
+    'large language model': "An **LLM (Large Language Model)** is a deep learning model with billions of parameters trained on internet-scale text. 🧠 They can generate text, answer questions, translate languages, write code, and hold conversations. GPT-4o powers this chatbot's responses.",
+    'gpt': "**GPT (Generative Pre-trained Transformer)** is OpenAI's family of LLMs. 🤖 GPT-4o — used in this chatbot — has 1 trillion+ parameters, handles text and images, and is capable of nuanced, context-aware conversation across 50+ languages.",
+    'openai': "**OpenAI** is the AI research company behind GPT-4, ChatGPT, DALL-E, and Whisper. 🧠 Founded in 2015, it's the world's leading AI lab. This chatbot integrates OpenAI's Whisper (STT) and GPT-4o (conversation) APIs.",
+    'rag': "**RAG (Retrieval-Augmented Generation)** combines LLMs with a vector database to answer questions about specific documents. 📚 Instead of relying only on training data, the model retrieves relevant context first, then generates answers — making responses more accurate and up-to-date. This chatbot implements RAG!",
+    'retrieval augmented generation': "**Retrieval-Augmented Generation (RAG)** is a technique where an LLM fetches relevant context from a knowledge base before generating a response. 📚 This chatbot uses FAISS vector search + OpenAI embeddings to implement RAG — enabling it to answer domain-specific questions accurately.",
+    'vector database': "A **vector database** stores data as high-dimensional numerical vectors (embeddings). 🔍 It enables semantic similarity search — finding documents that are *conceptually* similar, not just keyword-matching. This chatbot uses **FAISS** (Facebook AI Similarity Search) as its vector store.",
+    'faiss': "**FAISS (Facebook AI Similarity Search)** is an open-source library for efficient similarity search of dense vectors. 🔍 It's used in this chatbot's RAG pipeline to find the most relevant knowledge base entries for any user query — enabling context-aware responses.",
+    'embedding': "**Embeddings** are numerical vector representations of text that capture semantic meaning. 🧮 Similar phrases have similar embeddings. This chatbot uses OpenAI's `text-embedding-ada-002` model to convert knowledge base documents into vectors for semantic search.",
+    'sentiment analysis': "**Sentiment Analysis** detects the emotional tone of text — positive, negative, or neutral — and assigns a score. 😊😟 This chatbot performs real-time sentiment analysis on every message using TextBlob, detecting emotions like happy, frustrated, sad, anxious, and urgent.",
+    'emotion detection': "This chatbot performs **real-time emotion detection** using NLP. 🎭 It analyzes user messages and classifies emotions: happy, sad, angry, frustrated, anxious, excited, etc. The detected emotion is displayed in the chat UI and stored for analytics.",
+    'fraud detection': "This chatbot includes a **fraud detection module** that scans messages for suspicious patterns — fake urgency, social engineering, phishing attempts, and high-risk keywords. 🛡️ Flagged messages trigger alerts and are logged for review.",
+    'twilio': "**Twilio** is a cloud communications platform that provides APIs for calls, SMS, and WhatsApp. 📞 This chatbot integrates Twilio to handle real phone calls — users can call a phone number and speak to the AI directly.",
+    'jwt': "**JWT (JSON Web Token)** is a compact, URL-safe token format for secure authentication. 🔐 This chatbot's API uses JWT Bearer tokens for authentication. Tokens are signed with HMAC-SHA256 and expire after a configurable time.",
+    'authentication': "This chatbot uses **JWT-based authentication**. 🔐 Users register/login to get a token, which is sent with every API request in the `Authorization: Bearer <token>` header. Tokens are validated on the server for every protected route.",
+    'cors': "**CORS (Cross-Origin Resource Sharing)** is a browser security mechanism that controls which origins can access an API. 🌐 This chatbot's FastAPI backend has CORS configured to allow the frontend to make API calls from a different port (3000 vs 8000).",
+    'api': "An **API (Application Programming Interface)** is a set of rules for how software components communicate. 🔌 This chatbot exposes a RESTful API (FastAPI) with endpoints for auth, chat, analytics, voice, escalation, and knowledge management — all documented at `/docs`.",
+    'rest api': "**REST (Representational State Transfer)** is an architectural style for APIs using HTTP methods — GET, POST, PUT, DELETE. 📡 This chatbot's backend is a fully RESTful API with proper status codes, JSON responses, and automatic Swagger documentation.",
+    'microservices': "**Microservices** architecture divides an app into small, independent services that communicate via APIs. 🧩 This chatbot is designed with service separation: `ai_service`, `stt_service`, `tts_service`, `sentiment_service`, `vector_service` — each independently changeable.",
+    'scalability': "**Scalability** means a system can handle increasing load. 📈 This chatbot is designed for scalability: async FastAPI handles thousands of concurrent connections, Redis enables distributed caching, PostgreSQL scales with read replicas, and Docker enables horizontal scaling.",
+    'rate limiting': "**Rate Limiting** protects an API from abuse by capping the number of requests per time window. 🛡️ This chatbot uses **SlowAPI** (inspired by Flask-Limiter) to limit requests per IP — configurable via `RATE_LIMIT_PER_MINUTE` in `.env`.",
+
+    # -- CS Fundamentals --
+    'algorithm': "An **algorithm** is a step-by-step procedure to solve a problem. ⚙️ Common types: Sorting (QuickSort O(n log n), MergeSort), Searching (Binary Search O(log n)), Graph traversal (BFS, DFS). Good algorithms are efficient in time & space complexity.",
+    'data structure': "**Data Structures** organize and store data efficiently. 📦 Key types: Array (O(1) access), Linked List (O(1) insert), Stack (LIFO), Queue (FIFO), Hash Map (O(1) average), Tree (hierarchical), Graph (networks). Choosing the right one is crucial for performance.",
+    'time complexity': "**Time Complexity** measures how an algorithm's runtime grows with input size, using Big-O notation. ⏱️ O(1) = constant, O(log n) = logarithmic, O(n) = linear, O(n²) = quadratic. This chatbot's vector search uses FAISS — O(log n) approximate nearest neighbor.",
+    'object oriented': "**Object-Oriented Programming (OOP)** organizes code around objects with properties and behaviors. 🏗️ Four pillars: **Encapsulation** (data hiding), **Inheritance** (reuse), **Polymorphism** (many forms), **Abstraction** (hide complexity). Python, Java, and C++ are OOP languages.",
+    'database': "A **database** stores and retrieves structured data. 🗄️ Types: **Relational** (SQL — MySQL, PostgreSQL), **NoSQL** (MongoDB, Redis), **Vector** (FAISS, Pinecone). This chatbot uses SQLite (dev) or PostgreSQL (prod) for relational data, and FAISS for vector search.",
+    'sql': "**SQL (Structured Query Language)** is used to query relational databases. 🗄️ Key commands: SELECT (read), INSERT (create), UPDATE (modify), DELETE (remove), JOIN (combine tables). This chatbot uses SQLAlchemy ORM to abstract SQL queries in Python.",
+    'async': "**Asynchronous programming** allows tasks to run concurrently without blocking. ⚡ In Python, `async/await` with `asyncio` enables non-blocking I/O. This entire chatbot backend is fully async — it can handle thousands of simultaneous WebSocket connections without freezing.",
+    'http': "**HTTP (HyperText Transfer Protocol)** is the foundation of data communication on the web. 🌐 Methods: GET (fetch), POST (create), PUT (update), DELETE (remove). Status codes: 200 (OK), 201 (Created), 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 (Server Error).",
+    'load balancing': "**Load Balancing** distributes incoming traffic across multiple servers to prevent overload. ⚖️ Algorithms: Round Robin, Least Connections, IP Hash. Nginx (used as this chatbot's reverse proxy) doubles as a load balancer in production deployments.",
+    'caching': "**Caching** stores results of expensive operations for faster future access. ⚡ This chatbot uses **Redis** for caching rate-limit counters. Caching reduces latency from milliseconds to microseconds and dramatically reduces database load.",
+    'encryption': "**Encryption** converts data into an unreadable format to protect it. 🔒 This chatbot uses: **bcrypt** for password hashing, **JWT (HS256)** for token signing, **HTTPS/TLS** for data in transit. Never store plain-text passwords!",
+    'cloud': "**Cloud Computing** delivers computing resources (servers, storage, databases) over the internet. ☁️ This chatbot can be deployed on AWS, Google Cloud, or Azure. Docker containers make cloud deployment straightforward and reproducible.",
+    'devops': "**DevOps** bridges software development and IT operations. 🔄 This chatbot includes: **Docker** (containerization), **docker-compose** (orchestration), environment configs via `.env`, health checks, and structured logging — all DevOps best practices.",
+    'git': "**Git** is a distributed version control system. 📦 This project uses Git with GitHub for source control. Key commands: `git add`, `git commit`, `git push`, `git pull`, `git branch`. The entire codebase history is tracked and collaborative.",
 }
 
 
@@ -418,7 +451,7 @@ def _knowledge_lookup(text: str) -> Optional[str]:
 #  DEMO RESPONSE ENGINE
 # ─────────────────────────────────────────────────────────
 
-async def _demo_response(user_message: str, chat_history: list) -> str:
+def _demo_response(user_message: str, chat_history: list) -> str:
     text = user_message.lower().strip()
     turns = len([m for m in chat_history if m["role"] == "user"])
 
@@ -499,30 +532,23 @@ async def _demo_response(user_message: str, chat_history: list) -> str:
     if any(w in text for w in ['calculate', 'solve', 'compute', 'equation']):
         return "I can do that! 🧮 Just type the math expression, e.g. `15 * 4` or `120 divided by 6`, and I'll solve it instantly. What's the calculation?"
 
-    # ── 8. "What is / Who is" — search Wikipedia ───────
+    # ── 8. "What is / Who is" catch-all ─────────────────
     # (AFTER knowledge lookup, not before — so known topics are handled above)
     if re.search(r'\b(what\s+is|what\s+are|who\s+is|who\s+was|explain|define|tell\s+me\s+about|meaning\s+of)\b', text):
+        # Extract the subject to make the response feel more personal
         subject_match = re.search(
             r'\b(?:what\s+is|what\s+are|who\s+is|who\s+was|tell\s+me\s+about|explain|define)\s+(?:a\s+|an\s+|the\s+)?(.+?)(?:\?|$)',
             text, re.IGNORECASE
         )
-        subject = subject_match.group(1).strip() if subject_match else None
-        if subject:
-            wiki_result = await _wikipedia_search(subject)
-            if wiki_result:
-                logger.info(f"[WIKIPEDIA] Found answer for: '{subject}'")
-                return wiki_result
+        subject = subject_match.group(1).strip() if subject_match else "that"
         return (
-            f"Great question! 🤔 I searched but couldn't find enough info on that. "
-            "Try rephrasing or ask me something else — I cover science, tech, history, math and more! 💡"
+            f"Great question about **{subject}**! 🤔 "
+            "I have broad knowledge on science, technology, history, math, geography, health, and more — "
+            "but I might need a bit more context for that specific topic. "
+            "Could you rephrase or add more detail? I want to give you the best possible answer! 💡"
         )
 
-    # ── 9. Generic fallback — try Wikipedia before giving up ─
-    wiki_result = await _wikipedia_search(text)
-    if wiki_result:
-        logger.info(f"[WIKIPEDIA] Generic fallback result for: '{text[:40]}'")
-        return wiki_result
-
+    # ── 9. Generic fallback ──────────────────────────────
     return random.choice(_FALLBACK)
 
 
@@ -543,7 +569,7 @@ async def generate_response(
             if m["role"] == "user":
                 last_msg = m["content"]
                 break
-        response = await _demo_response(last_msg, messages)
+        response = _demo_response(last_msg, messages)
         logger.info(f"[DEMO] '{last_msg[:40]}' -> '{response[:60]}...'")
         return response
 
@@ -569,4 +595,4 @@ async def generate_response(
                 last_msg = m["content"]
                 break
         logger.info(f"[DEMO FALLBACK after error] using demo engine")
-        return await _demo_response(last_msg, messages)
+        return _demo_response(last_msg, messages)
