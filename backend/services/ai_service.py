@@ -1,16 +1,50 @@
 """
 GPT-powered conversation engine with multi-turn context memory.
 Falls back to a rich demo engine with general knowledge if OPENAI_API_KEY is not configured.
+When a question is not found in the local knowledge base, it falls back to Wikipedia.
 """
 
+import asyncio
 import openai
 import random
 import re
 import ast
 import operator
+import wikipediaapi
 from typing import List, Dict, Optional
 from config import settings
 from loguru import logger
+
+# Wikipedia client (thread-safe, reusable)
+_wiki = wikipediaapi.Wikipedia(
+    user_agent="AIVoiceChatBot/1.0 (contact@voicebot.ai)",
+    language="en",
+)
+
+
+async def _wikipedia_search(query: str) -> Optional[str]:
+    """Search Wikipedia for `query`, return a short conversational summary or None."""
+    try:
+        # Run the blocking wikipedia-api call in a thread pool so we don't block the event loop
+        loop = asyncio.get_event_loop()
+        page = await loop.run_in_executor(None, _wiki.page, query)
+        if not page.exists():
+            # Try searching with just the first meaningful word
+            short = query.split()[0] if query.split() else query
+            page = await loop.run_in_executor(None, _wiki.page, short)
+        if page.exists() and page.summary:
+            # Return the first 2 sentences, max 400 chars
+            sentences = page.summary.split(". ")
+            snippet = ". ".join(sentences[:2]).strip()
+            if not snippet.endswith("."):
+                snippet += "."
+            if len(snippet) > 400:
+                snippet = snippet[:397] + "..."
+            return f"🌐 Here's what I found on Wikipedia about **{page.title}**:\n\n{snippet}"
+        return None
+    except Exception as e:
+        logger.warning(f"Wikipedia lookup failed for '{query}': {e}")
+        return None
 
 client = None
 
@@ -178,6 +212,14 @@ _KNOWLEDGE = {
     },
 
     # --- Space & Science ---
+    'quantum physics': "**Quantum Physics** (or Quantum Mechanics) is the study of matter and energy at the most fundamental level — atoms and subatomic particles. ⚛️ At this scale, particles can exist in multiple states at once (superposition) and instantly connect across vast distances (entanglement)!",
+    'quantum mechanics': "**Quantum Mechanics** is the branch of physics relating to the very small. It departs from classical physics by showing that energy, momentum, and other quantities are restricted to discrete values (quanta). 🔬",
+    'superposition': "**Quantum Superposition** is the principle that a particle exists in all possible states at the same time until it is measured or observed. 🐱 It's famously illustrated by Schrödinger's Cat!",
+    'schrödinger': "Erwin Schrödinger was an Austrian physicist famous for his wave equation and the **Schrödinger's Cat** thought experiment! 🐈 It illustrates quantum superposition: a cat in a sealed box is simultaneously both alive and dead until you open the box to observe it.",
+    'schrodinger': "Erwin Schrödinger was an Austrian physicist famous for his wave equation and the **Schrödinger's Cat** thought experiment! 🐈 It illustrates quantum superposition: a cat in a sealed box is simultaneously both alive and dead until you open the box to observe it.",
+    'entanglement': "**Quantum Entanglement** happens when particles become linked so closely that the state of one instantly affects the other, no matter how far apart they are! 🌌 Albert Einstein famously called this 'spooky action at a distance'.",
+    'heisenberg': "Werner Heisenberg was a pioneer of quantum mechanics, best known for the **Heisenberg Uncertainty Principle**. 📏 It states that you cannot simultaneously know both the exact position and exact momentum of a particle!",
+    'uncertainty principle': "The **Heisenberg Uncertainty Principle** states that there's a fundamental limit to how precisely we can know certain physical properties of a particle simultaneously — like its position and momentum. 🎯 If you measure one accurately, the other becomes uncertain!",
     'planet': "Our solar system has **8 planets**: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune. 🪐 Fun fact: Jupiter alone is so large all other planets could fit inside it!",
     'sun': "The Sun is a **G-type main-sequence star** at the center of our solar system — about 4.6 billion years old, 1.39 million km in diameter, with a surface temperature of ~5,500°C ☀️",
     'moon': "Earth's Moon is ~**384,400 km** away and about 4.5 billion years old. 🌙 Only 12 humans have ever walked on it — all during NASA's Apollo missions (1969–1972).",
@@ -376,7 +418,7 @@ def _knowledge_lookup(text: str) -> Optional[str]:
 #  DEMO RESPONSE ENGINE
 # ─────────────────────────────────────────────────────────
 
-def _demo_response(user_message: str, chat_history: list) -> str:
+async def _demo_response(user_message: str, chat_history: list) -> str:
     text = user_message.lower().strip()
     turns = len([m for m in chat_history if m["role"] == "user"])
 
@@ -457,23 +499,30 @@ def _demo_response(user_message: str, chat_history: list) -> str:
     if any(w in text for w in ['calculate', 'solve', 'compute', 'equation']):
         return "I can do that! 🧮 Just type the math expression, e.g. `15 * 4` or `120 divided by 6`, and I'll solve it instantly. What's the calculation?"
 
-    # ── 8. "What is / Who is" catch-all ─────────────────
+    # ── 8. "What is / Who is" — search Wikipedia ───────
     # (AFTER knowledge lookup, not before — so known topics are handled above)
     if re.search(r'\b(what\s+is|what\s+are|who\s+is|who\s+was|explain|define|tell\s+me\s+about|meaning\s+of)\b', text):
-        # Extract the subject to make the response feel more personal
         subject_match = re.search(
             r'\b(?:what\s+is|what\s+are|who\s+is|who\s+was|tell\s+me\s+about|explain|define)\s+(?:a\s+|an\s+|the\s+)?(.+?)(?:\?|$)',
             text, re.IGNORECASE
         )
-        subject = subject_match.group(1).strip() if subject_match else "that"
+        subject = subject_match.group(1).strip() if subject_match else None
+        if subject:
+            wiki_result = await _wikipedia_search(subject)
+            if wiki_result:
+                logger.info(f"[WIKIPEDIA] Found answer for: '{subject}'")
+                return wiki_result
         return (
-            f"Great question about **{subject}**! 🤔 "
-            "I have broad knowledge on science, technology, history, math, geography, health, and more — "
-            "but I might need a bit more context for that specific topic. "
-            "Could you rephrase or add more detail? I want to give you the best possible answer! 💡"
+            f"Great question! 🤔 I searched but couldn't find enough info on that. "
+            "Try rephrasing or ask me something else — I cover science, tech, history, math and more! 💡"
         )
 
-    # ── 9. Generic fallback ──────────────────────────────
+    # ── 9. Generic fallback — try Wikipedia before giving up ─
+    wiki_result = await _wikipedia_search(text)
+    if wiki_result:
+        logger.info(f"[WIKIPEDIA] Generic fallback result for: '{text[:40]}'")
+        return wiki_result
+
     return random.choice(_FALLBACK)
 
 
@@ -494,7 +543,7 @@ async def generate_response(
             if m["role"] == "user":
                 last_msg = m["content"]
                 break
-        response = _demo_response(last_msg, messages)
+        response = await _demo_response(last_msg, messages)
         logger.info(f"[DEMO] '{last_msg[:40]}' -> '{response[:60]}...'")
         return response
 
@@ -520,4 +569,4 @@ async def generate_response(
                 last_msg = m["content"]
                 break
         logger.info(f"[DEMO FALLBACK after error] using demo engine")
-        return _demo_response(last_msg, messages)
+        return await _demo_response(last_msg, messages)

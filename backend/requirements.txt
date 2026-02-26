@@ -37,3 +37,4 @@ slowapi==0.1.9
 aiofiles==24.1.0
 websockets==14.1
 loguru==0.7.3
+wikipedia-api==0.9.0
