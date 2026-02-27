@@ -154,6 +154,153 @@ def _try_math(text: str) -> Optional[str]:
 
 
 # ─────────────────────────────────────────────────────────
+#  LINEAR EQUATION SOLVER
+# ─────────────────────────────────────────────────────────
+
+# Detect messages that look like linear equations (must contain '=' and a variable)
+_LINEAR_EQ_PATTERN = re.compile(
+    r'(?:solve|find|calculate|what\s+is|evaluate)?\s*'
+    r'([^=]+)\s*=\s*([^=?!]+)',
+    re.IGNORECASE,
+)
+
+# Match terms like: 2x, -3y, x, -y, +5x, x/2, 2x/3
+_TERM_PATTERN = re.compile(
+    r'([+-]?\s*\d*\.?\d*)\s*([a-z])\s*(?:/\s*(\d+\.?\d*))?'
+    r'|([+-]?\s*\d+\.?\d*)(?:\s*/\s*(\d+\.?\d*))?',
+    re.IGNORECASE,
+)
+
+
+def _parse_linear_side(expr: str, var: str):
+    """
+    Parse one side of a linear equation and return (coeff, constant).
+    coeff  = total coefficient of `var`
+    constant = total constant term
+    e.g. '2x + 3' -> (2.0, 3.0)   '-x - 5' -> (-1.0, -5.0)
+    """
+    # Normalise: ensure every term has an explicit sign prefix
+    expr = expr.strip().replace(' ', '')
+    # Insert '+' before terms that don't start with +/-
+    expr = re.sub(r'(?<=[0-9a-zA-Z])([+-])', r' \1', expr)
+    tokens = re.split(r'\s+', expr)
+
+    coeff = 0.0
+    constant = 0.0
+
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+
+        # Term contains the variable?
+        if var.lower() in token.lower():
+            # Extract coefficient, e.g. '2x', '-x', 'x', '+3x', 'x/2'
+            m = re.match(
+                r'^([+-]?\d*\.?\d*)' + re.escape(var) + r'(?:/(\d+\.?\d*))?$',
+                token, re.IGNORECASE
+            )
+            if m:
+                c_str = m.group(1)
+                div_str = m.group(2)
+                c = float(c_str) if c_str not in ('', '+', '-') else (1.0 if c_str != '-' else -1.0)
+                if div_str:
+                    c /= float(div_str)
+                coeff += c
+        else:
+            # Pure numeric term, possibly with division (e.g. '6', '-3', '1/2')
+            m = re.match(r'^([+-]?\d+\.?\d*)(?:/(\d+\.?\d*))?$', token)
+            if m:
+                val = float(m.group(1))
+                if m.group(2):
+                    val /= float(m.group(2))
+                constant += val
+
+    return coeff, constant
+
+
+def _try_linear_equation(text: str) -> Optional[str]:
+    """
+    Detect and solve a one-variable linear equation in the user's message.
+    Returns a friendly step-by-step solution string, or None if not applicable.
+    """
+    t = text.lower().strip()
+
+    # Must contain '=' to be an equation
+    if '=' not in t:
+        return None
+
+    # Identify the variable used (first single letter found adjacent to a digit or alone)
+    var_match = re.search(r'(?<![a-z])([a-z])(?![a-z])', t)
+    if not var_match:
+        return None
+    var = var_match.group(1)
+
+    # Skip if the variable is part of a word like 'is', 'am', 'as'
+    if var in ('i', 's', 'a'):
+        return None
+
+    # Split on '='
+    parts = t.split('=')
+    if len(parts) != 2:
+        return None
+
+    lhs_raw, rhs_raw = parts[0].strip(), parts[1].strip()
+
+    # Strip intent keywords from LHS
+    for kw in ('solve', 'find', 'calculate', 'evaluate', 'what is', 'for ' + var + ':',
+                'for ' + var, ':'):
+        lhs_raw = lhs_raw.replace(kw, '').strip()
+
+    # Must contain the variable on at least one side
+    if var not in lhs_raw and var not in rhs_raw:
+        return None
+
+    try:
+        l_coeff, l_const = _parse_linear_side(lhs_raw, var)
+        r_coeff, r_const = _parse_linear_side(rhs_raw, var)
+    except Exception:
+        return None
+
+    # Move var to left, constants to right
+    net_coeff = l_coeff - r_coeff      # coefficient of var
+    net_const = r_const - l_const      # constant on right side
+
+    if net_coeff == 0:
+        # No variable — not a linear equation (or degenerate)
+        return None
+
+    solution = net_const / net_coeff
+    sol_str = int(solution) if isinstance(solution, float) and solution.is_integer() else round(solution, 4)
+
+    # Build original equation display
+    original = f"{lhs_raw} = {rhs_raw}"
+
+    # Build step-by-step explanation
+    steps = []
+    steps.append(f"**Step 1:** Start with the equation: `{original}`")
+
+    if r_coeff != 0:
+        steps.append(
+            f"**Step 2:** Move `{r_coeff:g}{var}` to the left side → net coefficient: `{net_coeff:g}{var}`"
+        )
+    if l_const != 0:
+        steps.append(
+            f"**{'3' if r_coeff != 0 else '2'}:** Move constant `{l_const:g}` to the right → right side: `{net_const:g}`"
+        )
+
+    steps.append(f"**Final step:** Divide both sides by `{net_coeff:g}` → `{var} = {net_const:g} ÷ {net_coeff:g}`")
+
+    step_text = "\n".join(f"  {s}" for s in steps)
+    return (
+        f"🧮 **Solving:** `{original}`\n\n"
+        f"{step_text}\n\n"
+        f"✅ **{var} = {sol_str}**"
+    )
+
+
+
+# ─────────────────────────────────────────────────────────
 #  COMPREHENSIVE KNOWLEDGE BASE
 # ─────────────────────────────────────────────────────────
 
@@ -408,6 +555,10 @@ _KNOWLEDGE.update({
     'optics': "**Optics** studies light behavior — reflection, refraction, diffraction. 🔭 Refraction explains why a straw looks bent in water (light bends when changing medium). Lenses focus light — convex (converging) for magnification, concave (diverging) for glasses for myopia.",
 
     # ══ MATHEMATICS ══
+    'linear equation': "A **linear equation** is an algebraic equation where the variable has exponent 1 — no x², x³, etc. ➕ General form: **ax + b = c** (one variable) or **ax + by = c** (two variables). Examples: `2x + 3 = 7` (x = 2), `5x - 10 = 0` (x = 2). Real-life uses: calculating costs, distances, and mixtures. Try asking me: *solve 2x + 3 = 7*! 🧮",
+    'linear equations': "**Linear equations** are equations forming straight lines when graphed. 📈 Single variable: `3x + 5 = 14` → solve for x. Two variables: `2x + 3y = 12` (infinite solutions, needs a second equation). Systems of linear equations are solved by substitution, elimination, or matrices (Gaussian elimination).",
+    'solve for x': "To **solve for x**, isolate x on one side of the equation! 🧮 Example: `2x + 3 = 7` → subtract 3 → `2x = 4` → divide by 2 → **x = 2**. Try asking me to solve any equation like `3x - 5 = 10` or `4x + 2 = 3x + 7`!",
+    'quadratic': "A **quadratic equation** has the form **ax² + bx + c = 0**. 📐 Solved using the quadratic formula: **x = (−b ± √(b²−4ac)) / 2a**. The discriminant (b²−4ac): positive = 2 real roots, zero = 1 real root, negative = 2 complex roots. Example: x² − 5x + 6 = 0 → x = 2 or x = 3.",
     'calculus': "**Calculus** was invented independently by Newton and Leibniz in the 17th century. ∫ It has two branches: Differential (rates of change, slopes — derivatives) and Integral (areas, accumulation — integrals). It's fundamental to physics, engineering, and economics.",
     'statistics': "**Statistics** is the science of collecting, analyzing, and interpreting data. 📊 Mean (average), Median (middle value), Mode (most frequent). Standard deviation measures spread. p-values test hypotheses. It powers science, medicine, business, and AI.",
     'geometry': "**Geometry** studies shapes, sizes, and properties of figures. 📐 Euclidean geometry covers flat surfaces; non-Euclidean covers curved ones (like Earth's surface). Key formulas: Area of circle = πr², Pythagoras: a²+b²=c².",
@@ -721,7 +872,12 @@ def _demo_response(user_message: str, chat_history: list) -> str:
     if cap:
         return cap
 
-    # ── 4. Math ──────────────────────────────────────────
+    # ── 4. Linear Equations ──────────────────────────────
+    linear_result = _try_linear_equation(text)
+    if linear_result:
+        return linear_result
+
+    # ── 4b. Arithmetic Math ──────────────────────────────
     math_result = _try_math(text)
     if math_result:
         return math_result
